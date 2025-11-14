@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 
@@ -11,7 +12,8 @@ import (
 
 // UserUsecaseInterface defines user usecase contract
 type UserUsecaseInterface interface {
-	CreateUser(req *models.CreateUserRequest) error
+	CreateUser(ctx context.Context, req *models.CreateUserRequest) error
+	Login(ctx context.Context, req *models.LoginRequest) (*models.LoginResponse, error)
 }
 
 // UserUsecase implements UserUsecaseInterface
@@ -42,7 +44,7 @@ func (u *UserUsecase) validatePhone(phone string) error {
 }
 
 // CreateUser creates new user
-func (u *UserUsecase) CreateUser(req *models.CreateUserRequest) error {
+func (u *UserUsecase) CreateUser(ctx context.Context, req *models.CreateUserRequest) error {
 	// Validation
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
@@ -64,7 +66,7 @@ func (u *UserUsecase) CreateUser(req *models.CreateUserRequest) error {
 	}
 	req.Password = hashedPassword
 
-	err = u.userRepo.Create(req)
+	err = u.userRepo.Create(ctx, req)
 	if err != nil {
 		return fmt.Errorf("usecase error: %v", err)
 	}

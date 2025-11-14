@@ -1,6 +1,7 @@
 package order
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -10,8 +11,9 @@ import (
 
 // OrderRepository defines the order repository interface
 type OrderRepository interface {
-	CreateMultiple(req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error)
-	GetByID(id int) (*orderModel.Order, error)
+	CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error)
+	GetByID(ctx context.Context, id int) (*orderModel.Order, error)
+	BeginTx(ctx context.Context) (*sql.Tx, error)
 }
 
 // orderRepository implements OrderRepository
@@ -26,26 +28,14 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 	}
 }
 
-// CreateMultiple creates multiple order records for a multi-product order
-func (r *orderRepository) CreateMultiple(req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error) {
+// CreateOrder creates multiple order records for a multi-product order
+func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error) {
 	orderDataJSON, err := json.Marshal(req.OrderData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal order data: %w", err)
 	}
 
 	// Begin transaction for atomic order creation
-	tx, err := r.db.Begin()
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
-				fmt.Printf("Failed to rollback transaction: %v", rollbackErr)
-			}
-		}
-	}()
-
 	query := `
 		INSERT INTO orders (user_id, shop_id, product_id, quantity, total_price, status, order_data, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
@@ -111,7 +101,7 @@ func (r *orderRepository) CreateMultiple(req *orderModel.CreateOrderRequest, ite
 }
 
 // GetByID retrieves an order by ID
-func (r *orderRepository) GetByID(id int) (*orderModel.Order, error) {
+func (r *orderRepository) GetByID(ctx context.Context, id int) (*orderModel.Order, error) {
 	query := `
 		SELECT id, user_id, shop_id, product_id, quantity, total_price, status, order_data, created_at, updated_at
 		FROM orders
@@ -120,7 +110,7 @@ func (r *orderRepository) GetByID(id int) (*orderModel.Order, error) {
 
 	var order orderModel.Order
 	var orderDataJSON []byte
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&order.ID,
 		&order.UserID,
 		&order.ShopID,
@@ -146,4 +136,12 @@ func (r *orderRepository) GetByID(id int) (*orderModel.Order, error) {
 	}
 
 	return &order, nil
+}
+
+func (r *orderRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	return tx, nil
 }

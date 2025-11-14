@@ -53,9 +53,6 @@ func main() {
 	userUsecase := usecases.NewUserUsecase(userRepo)
 	userHandler := handlers.NewUserHandler(userUsecase)
 
-	authUsecase := usecases.NewAuthUsecase(userRepo)
-	authHandler := handlers.NewAuthHandler(authUsecase)
-
 	// Initialize Echo
 	e := echo.New()
 
@@ -80,9 +77,9 @@ func main() {
 
 	// Auth routes
 	auth := api.Group("/auth")
-	auth.POST("/login", authHandler.HandleDirectLogin)
-	auth.POST("/secure-login", authHandler.HandleEnvelopeLogin)
-	auth.POST("/create-envelope", authHandler.CreateEnvelope)
+	auth.POST("/login", userHandler.HandleDirectLogin)
+	auth.POST("/secure-login", userHandler.HandleEnvelopeLogin)
+	auth.POST("/create-envelope", userHandler.CreateEnvelope)
 
 	// User routes
 	api.POST("/users", userHandler.CreateUser)

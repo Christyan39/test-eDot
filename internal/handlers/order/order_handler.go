@@ -43,7 +43,6 @@ func NewOrderHandler(orderUsecase orderUsecase.OrderUsecase) OrderHandler {
 // @Router /orders [post]
 // @Security BearerAuth
 func (h *orderHandler) CreateOrder(c echo.Context) error {
-
 	// Bind request data
 	var req orderModel.CreateOrderRequest
 	if err := c.Bind(&req); err != nil {
@@ -53,17 +52,26 @@ func (h *orderHandler) CreateOrder(c echo.Context) error {
 		})
 	}
 
-	// Validate request data
-	if err := c.Validate(&req); err != nil {
-		log.Printf("[CreateOrder] Validation failed: %v", err)
+	// Validate request
+	if req.UserID <= 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": err.Error(),
+			"error": "invalid user ID",
+		})
+	}
+	if req.ShopID <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid shop ID",
+		})
+	}
+	if len(req.Items) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "at least one item is required",
 		})
 	}
 
 	log.Printf("[CreateOrder] Order data: UserID=%d, ShopID=%d, Items=%d",
 		req.UserID, req.ShopID, len(req.Items)) // Call usecase to create order
-	response, err := h.orderUsecase.CreateOrder(&req)
+	response, err := h.orderUsecase.CreateOrder(c.Request().Context(), &req)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			log.Printf("[CreateOrder] Product not found: %v", err)

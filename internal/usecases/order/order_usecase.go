@@ -1,18 +1,20 @@
 package order
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/Christyan39/test-eDot/internal/clients"
 	orderModel "github.com/Christyan39/test-eDot/internal/models/order"
+	productModels "github.com/Christyan39/test-eDot/internal/models/product"
 	orderRepo "github.com/Christyan39/test-eDot/internal/repositories/order"
 	"github.com/Christyan39/test-eDot/pkg/config"
 )
 
 // OrderUsecase defines the order business logic interface
 type OrderUsecase interface {
-	CreateOrder(req *orderModel.CreateOrderRequest) (*orderModel.CreateOrderResponse, error)
+	CreateOrder(ctx context.Context, req *orderModel.CreateOrderRequest) (*orderModel.CreateOrderResponse, error)
 }
 
 // orderUsecase implements OrderUsecase
@@ -33,47 +35,44 @@ func NewOrderUsecase(orderRepo orderRepo.OrderRepository) OrderUsecase {
 }
 
 // CreateOrder creates a new order with multiple products
-func (u *orderUsecase) CreateOrder(req *orderModel.CreateOrderRequest) (*orderModel.CreateOrderResponse, error) {
-	// Validate request
-	if req.UserID <= 0 {
-		return nil, fmt.Errorf("invalid user ID")
-	}
-	if req.ShopID <= 0 {
-		return nil, fmt.Errorf("invalid shop ID")
-	}
-	if len(req.Items) == 0 {
-		return nil, fmt.Errorf("at least one item is required")
-	}
-
+func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOrderRequest) (*orderModel.CreateOrderResponse, error) {
 	// Validate each item and collect product information via HTTP calls
 	itemPrices := make(map[int]float64)
 	var orderIDs []int
-	var stockUpdates []clients.UpdateProductRequest
+	var stockUpdates []productModels.UpdateProductRequest
 	totalPrice := 0.0
 
 	log.Printf("[CreateOrder] Making HTTP calls to Product Service at %s", u.productClient.BaseURL)
 
+	itemIDs := make([]int, 0, len(req.Items))
 	for _, item := range req.Items {
+		itemIDs = append(itemIDs, item.ProductID)
+	}
+
+	// Fetch product details in batch
+	products, err := u.productClient.GetProductByIDs(itemIDs)
+	if err != nil {
+		log.Printf("Failed to fetch products from Product Service: %v", err)
+		return nil, fmt.Errorf("failed to fetch product details")
+	}
+
+	productMap := make(map[int]*productModels.Product)
+	for i, product := range products {
+		if product.ShopID != req.ShopID {
+			return nil, fmt.Errorf("product %d does not belong to shop %d", product.ID, req.ShopID)
+		}
+		productMap[product.ID] = &products[i]
+	}
+
+	for _, item := range req.Items {
+		product := productMap[item.ProductID]
+
 		if item.ProductID <= 0 {
 			return nil, fmt.Errorf("invalid product ID: %d", item.ProductID)
 		}
 		if item.Quantity <= 0 {
 			return nil, fmt.Errorf("quantity must be greater than 0 for product %d", item.ProductID)
 		}
-
-		// Get product via HTTP call to Product Service
-		log.Printf("[CreateOrder] Fetching product %d from Product Service", item.ProductID)
-		product, err := u.productClient.GetProductByID(item.ProductID)
-		if err != nil {
-			log.Printf("Failed to get product with ID %d from Product Service: %v", item.ProductID, err)
-			return nil, fmt.Errorf("product %d not found", item.ProductID)
-		}
-
-		// Check if product belongs to the specified shop
-		if product.ShopID != req.ShopID {
-			return nil, fmt.Errorf("product %d does not belong to shop %d", item.ProductID, req.ShopID)
-		}
-
 		// Check stock availability
 		availableStock := product.Stock - product.OnHoldStock
 		if item.Quantity > availableStock {
@@ -87,7 +86,7 @@ func (u *orderUsecase) CreateOrder(req *orderModel.CreateOrderRequest) (*orderMo
 		totalPrice += itemPrice
 
 		// Prepare stock update for Product Service
-		stockUpdates = append(stockUpdates, clients.UpdateProductRequest{
+		stockUpdates = append(stockUpdates, productModels.UpdateProductRequest{
 			OnHoldStock: product.OnHoldStock + item.Quantity,
 			Stock:       product.Stock,
 		})
@@ -98,12 +97,25 @@ func (u *orderUsecase) CreateOrder(req *orderModel.CreateOrderRequest) (*orderMo
 
 	// Create orders for all products
 	log.Printf("[CreateOrder] Creating order records in database")
-	orderGroup, err := u.orderRepo.CreateMultiple(req, itemPrices)
+	tx, err := u.orderRepo.BeginTx(ctx)
+	if err != nil {
+		log.Printf("Failed to begin transaction: %v", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("Failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	orderGroup, err := u.orderRepo.CreateOrder(tx, req, itemPrices)
 	if err != nil {
 		log.Printf("Failed to create orders: %v", err)
 		return nil, fmt.Errorf("failed to create orders: %w", err)
 	}
-
 	// Update stock for all products via HTTP calls to Product Service
 	log.Printf("[CreateOrder] Updating stock for %d products via HTTP calls", len(req.Items))
 	for i, item := range req.Items {
@@ -115,6 +127,12 @@ func (u *orderUsecase) CreateOrder(req *orderModel.CreateOrderRequest) (*orderMo
 		}
 		orderIDs = append(orderIDs, orderGroup.Orders[i].ID)
 		log.Printf("[CreateOrder] Updated stock for product %d: OnHold=%d", item.ProductID, stockUpdates[i].OnHoldStock)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	log.Printf("Multi-product order created successfully: OrderIDs=%v, UserID=%d, ShopID=%d, TotalItems=%d, TotalPrice=%.2f",

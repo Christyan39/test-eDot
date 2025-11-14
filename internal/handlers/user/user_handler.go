@@ -5,12 +5,14 @@ import (
 
 	models "github.com/Christyan39/test-eDot/internal/models/user"
 	usecases "github.com/Christyan39/test-eDot/internal/usecases/user"
+	"github.com/Christyan39/test-eDot/pkg/envelope"
 	"github.com/labstack/echo/v4"
 )
 
 // UserHandler handles HTTP requests for users
 type UserHandler struct {
-	userUsecase usecases.UserUsecaseInterface
+	userUsecase     usecases.UserUsecaseInterface
+	envelopeService *envelope.EnvelopeService
 }
 
 // NewUserHandler creates new user handler
@@ -22,6 +24,9 @@ func NewUserHandler(userUsecase usecases.UserUsecaseInterface) *UserHandler {
 
 type UserHandlerInterface interface {
 	CreateUser(c echo.Context) error
+	HandleEnvelopeLogin(c echo.Context) error
+	HandleDirectLogin(c echo.Context) error
+	CreateEnvelope(c echo.Context) error
 }
 
 // CreateUser handles POST /users
@@ -42,7 +47,7 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		})
 	}
 
-	err := h.userUsecase.CreateUser(&req)
+	err := h.userUsecase.CreateUser(c.Request().Context(), &req)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": err.Error(),

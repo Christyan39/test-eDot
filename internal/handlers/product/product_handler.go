@@ -52,7 +52,7 @@ func (h *productHandler) CreateProduct(c echo.Context) error {
 		})
 	}
 
-	err := h.productUsecase.CreateProduct(&req)
+	err := h.productUsecase.CreateProduct(c.Request().Context(), &req)
 	if err != nil {
 		log.Printf("[CreateProduct] Usecase error: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -94,7 +94,7 @@ func (h *productHandler) ListProducts(c echo.Context) error {
 		})
 	}
 
-	response, err := h.productUsecase.ListProducts(&req)
+	response, err := h.productUsecase.ListProducts(c.Request().Context(), &req)
 	if err != nil {
 		log.Printf("[ListProducts] Usecase error: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -149,7 +149,7 @@ func (h *productHandler) UpdateOnHoldStock(c echo.Context) error {
 		})
 	}
 
-	err = h.productUsecase.UpdateOnHoldStock(id, req.OnHoldStock)
+	err = h.productUsecase.UpdateOnHoldStock(c.Request().Context(), id, req.OnHoldStock)
 	if err != nil {
 		if err.Error() == "product not found" {
 			log.Printf("[UpdateOnHoldStock] Product not found: ID=%d", id)

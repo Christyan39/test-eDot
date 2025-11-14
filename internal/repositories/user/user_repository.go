@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -10,8 +11,8 @@ import (
 
 // UserRepositoryInterface defines user repository contract
 type UserRepositoryInterface interface {
-	GetByEmailOrPhone(identifier string) (*models.User, error)
-	Create(req *models.CreateUserRequest) error
+	GetByEmailOrPhone(ctx context.Context, identifier string) (*models.User, error)
+	Create(ctx context.Context, req *models.CreateUserRequest) error
 }
 
 // UserRepository implements UserRepositoryInterface
@@ -27,7 +28,7 @@ func NewUserRepository(db *sql.DB) UserRepositoryInterface {
 }
 
 // GetByEmailOrPhone retrieves user by email or phone (for authentication)
-func (r *UserRepository) GetByEmailOrPhone(identifier string) (*models.User, error) {
+func (r *UserRepository) GetByEmailOrPhone(ctx context.Context, identifier string) (*models.User, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("database connection is not available")
 	}
@@ -35,7 +36,7 @@ func (r *UserRepository) GetByEmailOrPhone(identifier string) (*models.User, err
 	query := `SELECT id, name, email, phone, password, created_at, updated_at FROM users WHERE email = ? OR phone = ?`
 
 	user := &models.User{}
-	err := r.db.QueryRow(query, identifier, identifier).Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, query, identifier, identifier).Scan(&user.ID, &user.Name, &user.Email, &user.Phone, &user.Password, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -47,7 +48,7 @@ func (r *UserRepository) GetByEmailOrPhone(identifier string) (*models.User, err
 }
 
 // Create creates new user
-func (r *UserRepository) Create(req *models.CreateUserRequest) error {
+func (r *UserRepository) Create(ctx context.Context, req *models.CreateUserRequest) error {
 	if r.db == nil {
 		return fmt.Errorf("database connection is not available")
 	}
@@ -55,7 +56,7 @@ func (r *UserRepository) Create(req *models.CreateUserRequest) error {
 	query := `INSERT INTO users (name, email, phone, password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`
 
 	now := time.Now()
-	_, err := r.db.Exec(query, req.Name, req.Email, req.Phone, req.Password, now, now)
+	_, err := r.db.ExecContext(ctx, query, req.Name, req.Email, req.Phone, req.Password, now, now)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %v", err)
 	}

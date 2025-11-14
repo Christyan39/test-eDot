@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -15,7 +16,7 @@ type ProductRepository interface {
 	GetByIDForUpdateTx(tx *sql.Tx, id int) (*productModel.Product, error)
 	List(req *productModel.ProductListRequest) (*productModel.ProductListResponse, error)
 	UpdateTx(tx *sql.Tx, id int, req *productModel.UpdateProductRequest) error
-	TxBegin() (*sql.Tx, error)
+	TxBegin(ctx context.Context) (*sql.Tx, error)
 }
 
 // productRepository implements ProductRepository
@@ -280,8 +281,8 @@ func (r *productRepository) UpdateTx(tx *sql.Tx, id int, req *productModel.Updat
 	return nil
 }
 
-func (r *productRepository) TxBegin() (*sql.Tx, error) {
-	tx, err := r.db.Begin()
+func (r *productRepository) TxBegin(ctx context.Context) (*sql.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}

@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -10,9 +11,9 @@ import (
 
 // ProductUsecase defines the product business logic interface
 type ProductUsecase interface {
-	CreateProduct(req *productModel.CreateProductRequest) error
-	ListProducts(req *productModel.ProductListRequest) (*productModel.ProductListResponse, error)
-	UpdateOnHoldStock(id, newOnHoldStock int) error
+	CreateProduct(ctx context.Context, req *productModel.CreateProductRequest) error
+	ListProducts(ctx context.Context, req *productModel.ProductListRequest) (*productModel.ProductListResponse, error)
+	UpdateOnHoldStock(ctx context.Context, id, newOnHoldStock int) error
 }
 
 // productUsecase implements ProductUsecase
@@ -28,7 +29,7 @@ func NewProductUsecase(productRepo productRepo.ProductRepository) ProductUsecase
 }
 
 // CreateProduct creates a new product
-func (u *productUsecase) CreateProduct(req *productModel.CreateProductRequest) error {
+func (u *productUsecase) CreateProduct(ctx context.Context, req *productModel.CreateProductRequest) error {
 	// Validate shop metadata
 	if req.ShopMetadata.ShopID <= 0 {
 		return fmt.Errorf("invalid shop ID in metadata")
@@ -49,7 +50,7 @@ func (u *productUsecase) CreateProduct(req *productModel.CreateProductRequest) e
 }
 
 // ListProducts retrieves products with filtering and pagination
-func (u *productUsecase) ListProducts(req *productModel.ProductListRequest) (*productModel.ProductListResponse, error) {
+func (u *productUsecase) ListProducts(ctx context.Context, req *productModel.ProductListRequest) (*productModel.ProductListResponse, error) {
 	// Set default values
 	if req.Page <= 0 {
 		req.Page = 1
@@ -77,7 +78,7 @@ func (u *productUsecase) ListProducts(req *productModel.ProductListRequest) (*pr
 }
 
 // UpdateOnHoldStock updates product on-hold stock with transaction safety
-func (u *productUsecase) UpdateOnHoldStock(id, newOnHoldStock int) error {
+func (u *productUsecase) UpdateOnHoldStock(ctx context.Context, id, newOnHoldStock int) error {
 	if id <= 0 {
 		return fmt.Errorf("invalid product ID")
 	}
@@ -86,7 +87,7 @@ func (u *productUsecase) UpdateOnHoldStock(id, newOnHoldStock int) error {
 	}
 
 	// Begin transaction for atomic operation
-	tx, err := u.productRepo.TxBegin()
+	tx, err := u.productRepo.TxBegin(ctx)
 	if err != nil {
 		log.Printf("Failed to begin transaction: %v", err)
 		return fmt.Errorf("failed to begin transaction: %w", err)
