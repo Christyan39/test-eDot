@@ -72,50 +72,6 @@ tools:
 	go install github.com/swaggo/swag/cmd/swag@latest
 	go install github.com/cosmtrek/air@latest
 
-# Docker build for user service
-docker-build-user:
-	@echo "Building user service Docker image..."
-	docker build -f cmd/server/user/Dockerfile -t user-service:latest .
-
-# Docker build for product service  
-docker-build-product:
-	@echo "Building product service Docker image..."
-	docker build -f cmd/server/product/Dockerfile -t product-service:latest .
-
-# Docker build for order service
-docker-build-order:
-	@echo "Building order service Docker image..."
-	docker build -f cmd/server/order/Dockerfile -t order-service:latest .
-
-# Build all Docker images
-docker-build-all: docker-build-user docker-build-product docker-build-order
-	@echo "All Docker images built successfully!"
-
-# Push all Docker images (edit tags as needed for your registry)
-docker-push-all:
-	docker tag user-service:latest yourrepo/user-service:latest
-	docker tag product-service:latest yourrepo/product-service:latest
-	docker tag order-service:latest yourrepo/order-service:latest
-	docker push yourrepo/user-service:latest
-	docker push yourrepo/product-service:latest
-	docker push yourrepo/order-service:latest
-
-# Docker compose up
-docker-compose-up: 
-	@echo "Starting all services with docker-compose..."
-	docker-compose up --build -d
-
-docker-up:
-	@echo "Starting all services with docker-compose..."
-	make docker-build-all
-	make docker-compose-up
-	@echo "All services are up with docker-compose!"
-
-# Docker compose down
-docker-down:
-	@echo "Stopping all services..."
-	docker-compose down
-
 # Database setup
 db-create:
 	@echo "Creating database..."
@@ -154,19 +110,10 @@ help:
 	@echo "  db-migrate   - Run database migrations"
 	@echo "  db-setup     - Complete database setup (create + migrate)"
 	@echo ""
-	@echo "Docker:"
-	@echo "  docker-build-user - Build user service Docker image"
-	@echo "  docker-build-product - Build product service Docker image"
-	@echo "  docker-build-order - Build order service Docker image"
-	@echo "  docker-build-all - Build all Docker images"
-	@echo "  docker-push-all - Push all Docker images"
-	@echo "  docker-up    - Start all services with docker-compose"
-	@echo "  docker-down  - Stop all services"
-	@echo ""
 	@echo "  help         - Show this help message"
 
 # Default target
 all: deps swagger build
 
-run-all:
+run-all: 
 	./run_services.sh

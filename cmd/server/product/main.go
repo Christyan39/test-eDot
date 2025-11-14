@@ -9,9 +9,9 @@ import (
 	handlers "github.com/Christyan39/test-eDot/internal/handlers/product"
 	repositories "github.com/Christyan39/test-eDot/internal/repositories/product"
 	usecases "github.com/Christyan39/test-eDot/internal/usecases/product"
+	"github.com/Christyan39/test-eDot/pkg/auth"
 	"github.com/Christyan39/test-eDot/pkg/config"
 	"github.com/Christyan39/test-eDot/pkg/database"
-	pkgMiddleware "github.com/Christyan39/test-eDot/pkg/middleware"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -97,7 +97,7 @@ func main() {
 	products.GET("", productHandler.ListProducts)
 
 	// Internal service endpoint with service authentication
-	products.PATCH("/:id/hold-stock", productHandler.UpdateOnHoldStock, pkgMiddleware.ServiceAuthMiddleware())
+	products.PATCH("/:id/hold-stock", productHandler.UpdateOnHoldStock, auth.ServiceAuthMiddleware)
 	log.Println("[STARTUP] Routes configured successfully")
 
 	// Start server

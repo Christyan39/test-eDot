@@ -17,6 +17,7 @@ func LoadEnvFile(serviceName string) {
 	dockerEnvPath := "/app/" + serviceName + ".env"
 	if err := godotenv.Load(dockerEnvPath); err != nil {
 		// Try to load from configs/{serviceName}/.env (for local dev)
+		log.Printf("Failed to load Docker env file: %s, trying local config...", dockerEnvPath)
 		envPath := filepath.Join("configs", serviceName, ".env")
 		if err := godotenv.Load(envPath); err != nil {
 			// Try to load from root .env as fallback

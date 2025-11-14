@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Christyan39/test-eDot/pkg/auth"
+
 	_ "github.com/Christyan39/test-eDot/docs"
 	orderHandlers "github.com/Christyan39/test-eDot/internal/handlers/order"
 	orderRepositories "github.com/Christyan39/test-eDot/internal/repositories/order"
@@ -91,7 +93,7 @@ func main() {
 
 	// Order routes
 	orders := e.Group("/orders")
-	orders.POST("", orderHandler.CreateOrder)
+	orders.POST("", orderHandler.CreateOrder, auth.JWTAuthMiddleware)
 
 	log.Println("[STARTUP] Routes configured successfully")
 

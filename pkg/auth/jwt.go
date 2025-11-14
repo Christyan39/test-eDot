@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -68,4 +69,12 @@ func getJWTSecret() string {
 		secret = "your-super-secret-jwt-key-change-in-production"
 	}
 	return secret
+}
+
+func GetUserFromContext(ctx context.Context) (*userModels.AuthUser, error) {
+	user, ok := ctx.Value("user").(*userModels.AuthUser)
+	if !ok || user == nil {
+		return nil, fmt.Errorf("user not found in context")
+	}
+	return user, nil
 }

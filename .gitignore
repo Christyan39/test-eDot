@@ -1,0 +1,45 @@
+# Binaries
+/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.cov
+
+# Vendor directory (if not using vendoring)
+/vendor/
+
+# Dependency directories (remove the comment below if you use Go modules)
+# /Gopkg.lock
+# /Gopkg.toml
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# OS generated files
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Build artifacts
+/build/
+/dist/
+
+# Test cache
+go-test-cache/
+
+# Go workspace files
+go.work

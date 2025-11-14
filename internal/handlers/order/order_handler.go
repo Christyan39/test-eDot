@@ -9,6 +9,7 @@ import (
 
 	orderModel "github.com/Christyan39/test-eDot/internal/models/order"
 	orderUsecase "github.com/Christyan39/test-eDot/internal/usecases/order"
+	"github.com/Christyan39/test-eDot/pkg/auth"
 )
 
 // OrderHandler defines the order HTTP handler interface
@@ -69,6 +70,14 @@ func (h *orderHandler) CreateOrder(c echo.Context) error {
 		})
 	}
 
+	user, err := auth.GetUserFromContext(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Unauthorized",
+		})
+	}
+
+	req.UserID = user.ID
 	log.Printf("[CreateOrder] Order data: UserID=%d, ShopID=%d, Items=%d",
 		req.UserID, req.ShopID, len(req.Items)) // Call usecase to create order
 	response, err := h.orderUsecase.CreateOrder(c.Request().Context(), &req)
