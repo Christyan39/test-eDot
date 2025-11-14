@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
+	userModels "github.com/Christyan39/test-eDot/internal/models/user"
 	"github.com/Christyan39/test-eDot/pkg/config"
 	"github.com/labstack/echo/v4"
 )
@@ -27,7 +30,8 @@ func JWTAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Save user info to context
-		c.Set("user", user)
+		ctx := context.WithValue(c.Request().Context(), "user", user)
+		c.SetRequest(c.Request().WithContext(ctx))
 		return next(c)
 	}
 }
@@ -53,4 +57,12 @@ func ServiceAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		return next(c)
 	}
+}
+
+func GetUserFromContext(ctx context.Context) (*userModels.AuthUser, error) {
+	user, ok := ctx.Value("user").(*userModels.AuthUser)
+	if !ok || user == nil {
+		return nil, fmt.Errorf("user not found in context")
+	}
+	return user, nil
 }

@@ -56,6 +56,7 @@ type ProductListRequest struct {
 	MaxPrice float64 `json:"max_price" query:"max_price" validate:"omitempty,min=0"`
 	Status   string  `json:"status" query:"status" validate:"omitempty,oneof=active inactive discontinued"`
 	Search   string  `json:"search" query:"search" validate:"omitempty,max=100"`
+	IDs      []int   `json:"ids" query:"ids" validate:"omitempty,dive,min=1"`
 }
 
 // ProductListResponse represents paginated product list response

@@ -74,25 +74,19 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOr
 			return nil, fmt.Errorf("quantity must be greater than 0 for product %d", item.ProductID)
 		}
 		// Check stock availability
-		availableStock := product.Stock - product.OnHoldStock
-		if item.Quantity > availableStock {
+		if item.Quantity > product.Stock {
 			return nil, fmt.Errorf("insufficient stock for product %d: requested %d, available %d",
-				item.ProductID, item.Quantity, availableStock)
+				item.ProductID, item.Quantity, product.Stock)
 		}
 
-		// Calculate item price and add to total
-		itemPrice := product.Price * float64(item.Quantity)
+		if item.Price != product.Price {
+			return nil, fmt.Errorf("price mismatch for product %d: expected %.2f, got %.2f",
+				item.ProductID, product.Price, item.Price)
+		}
+
 		itemPrices[item.ProductID] = product.Price
-		totalPrice += itemPrice
+		totalPrice += product.Price * float64(item.Quantity)
 
-		// Prepare stock update for Product Service
-		stockUpdates = append(stockUpdates, productModels.UpdateProductRequest{
-			OnHoldStock: product.OnHoldStock + item.Quantity,
-			Stock:       product.Stock,
-		})
-
-		log.Printf("[CreateOrder] Product %d validated: Price=%.2f, Available=%d, Requested=%d",
-			item.ProductID, product.Price, availableStock, item.Quantity)
 	}
 
 	// Create orders for all products

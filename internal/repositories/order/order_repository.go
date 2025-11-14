@@ -47,16 +47,12 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 
 	// Create an order record for each product
 	for _, item := range req.Items {
-		itemTotal := itemPrices[item.ProductID] * float64(item.Quantity)
-		totalPrice += itemTotal
-		totalItems += item.Quantity
-
 		result, err := tx.Exec(query,
 			req.UserID,
 			req.ShopID,
 			item.ProductID,
 			item.Quantity,
-			itemTotal,
+			req.TotalPrice,
 			orderModel.OrderStatusPending,
 			orderDataJSON,
 		)
@@ -72,14 +68,13 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 
 		// Create order object
 		order := orderModel.Order{
-			ID:         int(orderID),
-			UserID:     req.UserID,
-			ShopID:     req.ShopID,
-			ProductID:  item.ProductID,
-			Quantity:   item.Quantity,
-			TotalPrice: itemTotal,
-			Status:     orderModel.OrderStatusPending,
-			OrderData:  req.OrderData,
+			ID:        int(orderID),
+			UserID:    req.UserID,
+			ShopID:    req.ShopID,
+			ProductID: item.ProductID,
+			Quantity:  item.Quantity,
+			Status:    orderModel.OrderStatusPending,
+			OrderData: req.OrderData,
 		}
 		orders = append(orders, order)
 	}

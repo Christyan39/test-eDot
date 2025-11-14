@@ -53,12 +53,6 @@ func (h *orderHandler) CreateOrder(c echo.Context) error {
 		})
 	}
 
-	// Validate request
-	if req.UserID <= 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "invalid user ID",
-		})
-	}
 	if req.ShopID <= 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "invalid shop ID",

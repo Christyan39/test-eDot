@@ -133,6 +133,15 @@ func (r *productRepository) List(req *productModel.ProductListRequest) (*product
 		args = append(args, searchParam, searchParam)
 	}
 
+	if len(req.IDs) > 0 {
+		placeholders := make([]string, len(req.IDs))
+		for i, id := range req.IDs {
+			placeholders[i] = "?"
+			args = append(args, id)
+		}
+		conditions = append(conditions, fmt.Sprintf("id IN (%s)", strings.Join(placeholders, ",")))
+	}
+
 	// Apply conditions
 	if len(conditions) > 0 {
 		conditionStr := " AND " + strings.Join(conditions, " AND ")
