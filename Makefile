@@ -3,7 +3,7 @@
 .PHONY: build build-user build-product run run-user run-product swagger clean test help
 
 # Build all services
-build: build-user build-product
+build: build-user build-product build-order
 	@echo "All services built successfully!"
 
 # Build user service
@@ -16,6 +16,11 @@ build-product:
 	@echo "Building product service..."
 	go build -o bin/product ./cmd/server/product
 
+# Build order service
+build-order:
+	@echo "Building order service..."
+	go build -o bin/order ./cmd/server/order
+
 # Run user service
 run-user: build-user
 	@echo "Starting user service..."
@@ -24,6 +29,10 @@ run-user: build-user
 # Run product service
 run-product: 
 	go run ./cmd/server/product/main.go
+
+# Run order service
+run-order:
+	go run ./cmd/server/order/main.go
 
 # Run all services (legacy support)
 run: run-user
