@@ -37,6 +37,7 @@ type CreateProductRequest struct {
 
 // UpdateProductRequest represents request to update product
 type UpdateProductRequest struct {
+	ID           int64         `json:"id" validate:"required,min=1"`
 	Name         string        `json:"name,omitempty" validate:"omitempty,min=2,max=100"`
 	Description  string        `json:"description,omitempty" validate:"omitempty,min=10,max=1000"`
 	Price        float64       `json:"price,omitempty" validate:"omitempty,min=0"`
@@ -68,7 +69,16 @@ type ProductListResponse struct {
 	Pages    int       `json:"pages"`
 }
 
-type UpdateProductOnHoldStockRequest struct {
-	IDs         []int64 `json:"ids" validate:"required,dive,min=1"`
-	OnHoldStock int     `json:"on_hold_stock,omitempty" validate:"omitempty,min=0"`
+type HoldStockRequest struct {
+	OrderID  int64     `json:"order_id" validate:"required,min=1"`
+	Products []Product `json:"products" validate:"required,dive"`
+}
+
+type HoldStockAudit struct {
+	ID        int64     `json:"id" db:"id"`
+	OrderID   int64     `json:"order_id" db:"order_id"`
+	ProductID int64     `json:"product_id" db:"product_id"`
+	Quantity  int       `json:"quantity" db:"quantity"`
+	Status    string    `json:"status" db:"status"` // held, success, cancelled
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }

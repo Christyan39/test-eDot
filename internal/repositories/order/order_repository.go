@@ -37,8 +37,15 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 
 	// Begin transaction for atomic order creation
 	query := `
-		INSERT INTO orders (user_id, shop_id, total_price, status, order_data, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+		INSERT INTO orders (
+		user_id, 
+		shop_id, 
+		total_price,
+		status, 
+		order_data, 
+		created_at, 
+		updated_at)
+		VALUES (?, ?, ?, ?, ?, NOW(), NOW())
 	`
 
 	result, err := tx.Exec(query,

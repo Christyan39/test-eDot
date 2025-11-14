@@ -17,6 +17,8 @@ type ProductRepository interface {
 	List(req *productModel.ProductListRequest) (*productModel.ProductListResponse, error)
 	UpdateTx(tx *sql.Tx, id int, req *productModel.UpdateProductRequest) error
 	TxBegin(ctx context.Context) (*sql.Tx, error)
+	GetByIDsForUpdateTx(tx *sql.Tx, ids []int64) ([]productModel.Product, error)
+	InsertHoldStockAuditsTx(tx *sql.Tx, audits []productModel.HoldStockAudit) error
 }
 
 // productRepository implements ProductRepository
@@ -296,4 +298,87 @@ func (r *productRepository) TxBegin(ctx context.Context) (*sql.Tx, error) {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	return tx, nil
+}
+
+// GetByIDsForUpdateTx retrieves a product by ID within a transaction with row lock
+func (r *productRepository) GetByIDsForUpdateTx(tx *sql.Tx, ids []int64) ([]productModel.Product, error) {
+	if len(ids) == 0 {
+		return []productModel.Product{}, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, name, description, price, stock, on_hold_stock, shop_id, shop_metadata, status, created_at, updated_at
+		FROM products
+		WHERE id IN (%s) FOR UPDATE
+	`, strings.Join(placeholders, ","))
+
+	products := []productModel.Product{}
+	var shopMetadataJSON []byte
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get products: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var product productModel.Product
+		err := rows.Scan(
+			&product.ID,
+			&product.Name,
+			&product.Description,
+			&product.Price,
+			&product.Stock,
+			&product.OnHoldStock,
+			&product.ShopID,
+			&shopMetadataJSON,
+			&product.Status,
+			&product.CreatedAt,
+			&product.UpdatedAt,
+		)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, fmt.Errorf("product not found")
+			}
+			return nil, fmt.Errorf("failed to get product: %w", err)
+		}
+		// Unmarshal shop metadata
+		if err := json.Unmarshal(shopMetadataJSON, &product.ShopMetadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal shop metadata: %w", err)
+		}
+
+		products = append(products, product)
+	}
+
+	return products, nil
+}
+
+// InsertHoldStockAuditsTx inserts hold stock audit records within a transaction
+func (r *productRepository) InsertHoldStockAuditsTx(tx *sql.Tx, audits []productModel.HoldStockAudit) error {
+	if len(audits) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, 0, len(audits))
+	args := make([]interface{}, 0, len(audits)*5)
+	for _, audit := range audits {
+		placeholders = append(placeholders, "(?, ?, ?, ?, ?)")
+		args = append(args, audit.ProductID, audit.Quantity, audit.Status, audit.OrderID, audit.CreatedAt)
+	}
+
+	query := `INSERT INTO product_hold_audit (product_id, quantity, status, order_id, created_at) VALUES ` + strings.Join(placeholders, ",")
+
+	_, err := tx.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to insert hold stock audits in bulk: %w", err)
+	}
+
+	return nil
 }

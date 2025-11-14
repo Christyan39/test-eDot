@@ -30,3 +30,18 @@ INSERT INTO products (name, description, price, stock, on_hold_stock, shop_id, s
 ('Women''s Dress', 'Elegant summer dress', 79.99, 45, 8, 4, JSON_OBJECT('shop_name', 'Fashion Hub', 'shop_id', 4, 'status', 'active'), 'active'),
 ('The Great Gatsby', 'Classic American novel by F. Scott Fitzgerald', 12.99, 200, 0, 5, JSON_OBJECT('shop_name', 'BookWorld', 'shop_id', 5, 'status', 'verified'), 'active'),
 ('Clean Code', 'A Handbook of Agile Software Craftsmanship', 45.99, 75, 5, 5, JSON_OBJECT('shop_name', 'BookWorld', 'shop_id', 5, 'status', 'verified'), 'active');
+
+-- add table for product hold audit
+CREATE TABLE IF NOT EXISTS product_hold_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    product_id INT NOT NULL,
+    quantity INT NOT NULL,
+    status ENUM('held', 'success', 'cancelled') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_product_id (product_id),
+    INDEX idx_order_id (order_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci; 

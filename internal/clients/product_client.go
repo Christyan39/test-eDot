@@ -2,6 +2,7 @@ package clients
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,6 +33,7 @@ func NewProductServiceClient(baseURL, apiKey string) ProductServiceClientInterfa
 type ProductServiceClientInterface interface {
 	GetProductByIDs(productIDs []int64) ([]productModels.Product, error)
 	UpdateProductStock(productID int64, req *productModels.UpdateProductRequest) error
+	HoldStockInBulk(ctx context.Context, req *productModels.HoldStockRequest) error
 }
 
 // GetProductByID makes HTTP call to product service to get product details
@@ -88,6 +90,36 @@ func (p *ProductServiceClient) UpdateProductStock(productID int64, req *productM
 	}
 
 	httpReq, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("X-API-Key", p.APIKey)
+
+	resp, err := p.HTTPClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("failed to make request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("product service returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+func (p *ProductServiceClient) HoldStockInBulk(ctx context.Context, req *productModels.HoldStockRequest) error {
+	url := fmt.Sprintf("%s/products/hold-stock", p.BaseURL)
+
+	jsonData, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "PATCH", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

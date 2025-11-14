@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	productModel "github.com/Christyan39/test-eDot/internal/models/product"
 	productRepo "github.com/Christyan39/test-eDot/internal/repositories/product"
@@ -14,6 +15,7 @@ type ProductUsecase interface {
 	CreateProduct(ctx context.Context, req *productModel.CreateProductRequest) error
 	ListProducts(ctx context.Context, req *productModel.ProductListRequest) (*productModel.ProductListResponse, error)
 	UpdateOnHoldStock(ctx context.Context, id, newOnHoldStock int) error
+	HoldStockInBulk(ctx context.Context, req *productModel.HoldStockRequest) error
 }
 
 // productUsecase implements ProductUsecase
@@ -130,5 +132,77 @@ func (u *productUsecase) UpdateOnHoldStock(ctx context.Context, id, newOnHoldSto
 	}
 
 	log.Printf("Successfully updated on-hold stock for product ID %d: %d -> %d", id, product.OnHoldStock, product.OnHoldStock+newOnHoldStock)
+	return nil
+}
+
+func (u *productUsecase) HoldStockInBulk(ctx context.Context, req *productModel.HoldStockRequest) error {
+
+	tx, err := u.productRepo.TxBegin(ctx)
+	if err != nil {
+		log.Printf("Failed to begin transaction: %v", err)
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				log.Printf("Failed to rollback transaction: %v", rollbackErr)
+			}
+		}
+	}()
+
+	productIDs := []int64{}
+	updateRequestMap := make(map[int64]productModel.Product)
+	holdAudit := []productModel.HoldStockAudit{}
+	for i, item := range req.Products {
+		productIDs = append(productIDs, item.ID)
+		updateRequestMap[item.ID] = req.Products[i]
+		holdAudit = append(holdAudit, productModel.HoldStockAudit{
+			ProductID: item.ID,
+			Quantity:  req.Products[i].OnHoldStock,
+			Status:    "held",
+			OrderID:   req.OrderID,
+			CreatedAt: time.Now(),
+		})
+	}
+
+	products, err := u.productRepo.GetByIDsForUpdateTx(tx, productIDs)
+	if err != nil {
+		log.Printf("Failed to get products for update: %v", err)
+		return fmt.Errorf("failed to get products for update: %w", err)
+	}
+
+	for _, product := range products {
+		if updateReq, exists := updateRequestMap[product.ID]; exists {
+			if updateReq.OnHoldStock < 0 {
+				return fmt.Errorf("on-hold stock cannot be negative for product ID %d", product.ID)
+			}
+			if updateReq.OnHoldStock > product.Stock {
+				return fmt.Errorf("on-hold stock (%d) cannot exceed available stock (%d) for product ID %d",
+					updateReq.OnHoldStock, product.Stock, product.ID)
+			}
+
+			err = u.productRepo.UpdateTx(tx, int(product.ID), &productModel.UpdateProductRequest{
+				OnHoldStock: product.OnHoldStock + updateReq.OnHoldStock,
+				Stock:       product.Stock - updateReq.OnHoldStock,
+			})
+			if err != nil {
+				log.Printf("Failed to update on-hold stock for product ID %d: %v", product.ID, err)
+				return fmt.Errorf("failed to update on-hold stock for product ID %d: %w", product.ID, err)
+			}
+		}
+	}
+
+	err = u.productRepo.InsertHoldStockAuditsTx(tx, holdAudit)
+	if err != nil {
+		log.Printf("Failed to insert hold stock audits: %v", err)
+		return fmt.Errorf("failed to insert hold stock audits: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("Failed to commit transaction: %v", err)
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return nil
 }

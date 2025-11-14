@@ -97,7 +97,7 @@ func main() {
 	products.GET("", productHandler.ListProducts)
 
 	// Internal service endpoint with service authentication
-	products.PATCH("/:id/hold-stock", productHandler.UpdateOnHoldStock, auth.ServiceAuthMiddleware)
+	products.PATCH("/hold-stock", productHandler.HoldStockInBulk, auth.ServiceAuthMiddleware)
 	log.Println("[STARTUP] Routes configured successfully")
 
 	// Start server

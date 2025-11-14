@@ -107,11 +107,24 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOr
 		log.Printf("Failed to create orders: %v", err)
 		return fmt.Errorf("failed to create orders: %w", err)
 	}
-	productOnHoldStockUpdates := make([]productModels.UpdateProductRequest, 0, len(req.Items))
 
-	for i, _ := range req.Items {
+	holdStockRequest := productModels.HoldStockRequest{
+		OrderID:  orderID,
+		Products: []productModels.Product{},
+	}
+
+	for i, item := range req.Items {
 		req.Items[i].OrderID = orderID
-		productOnHoldStockUpdates = append(productOnHoldStockUpdates, productModels.UpdateProductRequest{})
+		holdStockRequest.Products = append(holdStockRequest.Products, productModels.Product{
+			ID:          item.ProductID,
+			OnHoldStock: item.Quantity,
+		})
+	}
+
+	err = u.productClient.HoldStockInBulk(ctx, &holdStockRequest)
+	if err != nil {
+		log.Printf("Failed to hold stock in Product Service: %v", err)
+		return fmt.Errorf("failed to hold stock in Product Service: %w", err)
 	}
 
 	err = tx.Commit()
