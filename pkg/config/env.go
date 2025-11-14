@@ -13,16 +13,23 @@ import (
 // then falls back to root .env file
 func LoadEnvFile(serviceName string) {
 	// Try to load from configs/{serviceName}/.env first
-	envPath := filepath.Join("configs", serviceName, ".env")
-	if err := godotenv.Load(envPath); err != nil {
-		// Try to load from root .env as fallback
-		if err := godotenv.Load(); err != nil {
-			log.Printf("Warning: No .env file found: %v", err)
+	// Try to load from /app/{service}.env (for Docker volume mount)
+	dockerEnvPath := "/app/" + serviceName + ".env"
+	if err := godotenv.Load(dockerEnvPath); err != nil {
+		// Try to load from configs/{serviceName}/.env (for local dev)
+		envPath := filepath.Join("configs", serviceName, ".env")
+		if err := godotenv.Load(envPath); err != nil {
+			// Try to load from root .env as fallback
+			if err := godotenv.Load(); err != nil {
+				log.Printf("Warning: No .env file found: %v", err)
+			} else {
+				log.Println("[STARTUP] Loaded environment from root .env")
+			}
 		} else {
-			log.Println("[STARTUP] Loaded environment from root .env")
+			log.Printf("[STARTUP] Loaded environment from %s", envPath)
 		}
 	} else {
-		log.Printf("[STARTUP] Loaded environment from %s", envPath)
+		log.Printf("[STARTUP] Loaded environment from %s (Docker volume)", dockerEnvPath)
 	}
 }
 

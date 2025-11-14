@@ -167,3 +167,6 @@ help:
 
 # Default target
 all: deps swagger build
+
+run-all:
+	./run_services.sh

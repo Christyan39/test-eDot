@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -52,25 +51,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("Warning: Failed to connect to MySQL: %v", err)
 	}
-
-	fmt.Println("Starting Product Service...")
-	log.Println("=== PRODUCT SERVICE STARTING ===")
-	log.Println("[STARTUP] Product Service initialization started")
-	log.Printf("[STARTUP] Process ID: %d", os.Getpid())
-	if wd, err := os.Getwd(); err == nil {
-		log.Printf("[STARTUP] Working directory: %s", wd)
-	}
+	defer db.Close()
 
 	// Initialize layers
-	log.Println("[STARTUP] Initializing repository layer...")
 	productRepo := repositories.NewProductRepository(db)
-	log.Println("[STARTUP] Initializing usecase layer...")
 	productUsecase := usecases.NewProductUsecase(productRepo)
-	log.Println("[STARTUP] Initializing handler layer...")
 	productHandler := handlers.NewProductHandler(productUsecase)
 
 	// Initialize Echo
-	log.Println("[STARTUP] Initializing Echo web framework...")
 	e := echo.New()
 	e.Debug = true
 
@@ -78,7 +66,6 @@ func main() {
 	e.Logger.SetOutput(os.Stdout)
 
 	// Middleware
-	log.Println("[STARTUP] Setting up middleware...")
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Format: "${time_rfc3339} [${method}] ${uri} -> ${status} (${latency_human}) from ${remote_ip}\n",
 		Output: os.Stdout,
@@ -118,7 +105,7 @@ func main() {
 	log.Printf("[STARTUP] ========================")
 	log.Printf("[STARTUP] PRODUCT SERVICE READY!")
 	log.Printf("[STARTUP] ========================")
-	fmt.Printf("Product Service starting on port %s\n", port)
+	log.Printf("Product Service starting on port %s\n", port)
 	log.Printf("[INFO] Health check: http://localhost:%s/health", port)
 	log.Printf("[INFO] API Base URL: http://localhost:%s/api/v1", port)
 	log.Printf("[INFO] Swagger UI: http://localhost:%s/swagger/index.html", port)

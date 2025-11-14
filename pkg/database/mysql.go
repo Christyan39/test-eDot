@@ -55,5 +55,11 @@ func InitMySQL(serviceName string) (*sql.DB, error) {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
+	// Test database connection
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+	log.Println("[STARTUP] Database connection established successfully")
+
 	return db, nil
 }

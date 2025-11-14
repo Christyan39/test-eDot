@@ -38,43 +38,30 @@ import (
 // @name Authorization
 
 func main() {
-	log.Println("=== ORDER SERVICE STARTING ===")
-	log.Println("[STARTUP] Order Service initialization started")
-	log.Printf("[STARTUP] Process ID: %d", os.Getpid())
-	if wd, err := os.Getwd(); err == nil {
-		log.Printf("[STARTUP] Working directory: %s", wd)
-	}
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	// Load environment variables
-	log.Println("[STARTUP] Loading environment variables...")
 	config.LoadEnvFile("order")
 
 	// Initialize database connection
-	log.Println("[STARTUP] Connecting to database...")
 	db, err := database.InitMySQL("order")
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// Test database connection
-	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
-	}
-	log.Println("[STARTUP] Database connection established successfully")
-
 	// Initialize layers
-	log.Println("[STARTUP] Initializing repository layer...")
 	orderRepo := orderRepositories.NewOrderRepository(db)
-	log.Println("[STARTUP] Initializing usecase layer (with HTTP Product Service client)...")
 	orderUsecase := orderUsecases.NewOrderUsecase(orderRepo)
-	log.Println("[STARTUP] Initializing handler layer...")
 	orderHandler := orderHandlers.NewOrderHandler(orderUsecase)
 
 	// Initialize Echo
 	log.Println("[STARTUP] Initializing Echo web framework...")
 	e := echo.New()
 	e.Debug = true
+
+	// Configure Echo logger
+	e.Logger.SetOutput(os.Stdout)
 
 	// Configure Echo logger
 	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
