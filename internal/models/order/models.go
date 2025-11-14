@@ -31,7 +31,8 @@ type OrderGroup struct {
 
 // OrderItem represents a single item in an order
 type OrderItem struct {
-	ProductID int     `json:"product_id" validate:"required,min=1"`
+	OrderID   int64   `json:"order_id"`
+	ProductID int64   `json:"product_id" validate:"required,min=1"`
 	Quantity  int     `json:"quantity" validate:"required,min=1"`
 	Price     float64 `json:"price" validate:"required,min=0"`
 }

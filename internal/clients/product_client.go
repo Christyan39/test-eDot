@@ -19,7 +19,7 @@ type ProductServiceClient struct {
 }
 
 // NewProductServiceClient creates a new product service HTTP client
-func NewProductServiceClient(baseURL, apiKey string) *ProductServiceClient {
+func NewProductServiceClient(baseURL, apiKey string) ProductServiceClientInterface {
 	return &ProductServiceClient{
 		BaseURL: baseURL,
 		HTTPClient: &http.Client{
@@ -30,12 +30,12 @@ func NewProductServiceClient(baseURL, apiKey string) *ProductServiceClient {
 }
 
 type ProductServiceClientInterface interface {
-	GetProductByIDs(productID int) ([]productModels.Product, error)
-	UpdateProductStock(productID int, req *productModels.UpdateProductRequest) error
+	GetProductByIDs(productIDs []int64) ([]productModels.Product, error)
+	UpdateProductStock(productID int64, req *productModels.UpdateProductRequest) error
 }
 
 // GetProductByID makes HTTP call to product service to get product details
-func (p *ProductServiceClient) GetProductByIDs(productIDs []int) ([]productModels.Product, error) {
+func (p *ProductServiceClient) GetProductByIDs(productIDs []int64) ([]productModels.Product, error) {
 	productIDsStr := make([]string, len(productIDs))
 	for i, id := range productIDs {
 		productIDsStr[i] = fmt.Sprintf("%d", id)
@@ -75,7 +75,7 @@ func (p *ProductServiceClient) GetProductByIDs(productIDs []int) ([]productModel
 }
 
 // UpdateProductStock makes HTTP call to product service to update stock
-func (p *ProductServiceClient) UpdateProductStock(productID int, req *productModels.UpdateProductRequest) error {
+func (p *ProductServiceClient) UpdateProductStock(productID int64, req *productModels.UpdateProductRequest) error {
 	url := fmt.Sprintf("%s/products/%d/hold-stock", p.BaseURL, productID)
 
 	reqBody := map[string]int{

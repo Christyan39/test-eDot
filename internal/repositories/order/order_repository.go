@@ -11,7 +11,7 @@ import (
 
 // OrderRepository defines the order repository interface
 type OrderRepository interface {
-	CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error)
+	CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest) (int64, error)
 	GetByID(ctx context.Context, id int) (*orderModel.Order, error)
 	BeginTx(ctx context.Context) (*sql.Tx, error)
 }
@@ -29,70 +29,37 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 }
 
 // CreateOrder creates multiple order records for a multi-product order
-func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest, itemPrices map[int]float64) (*orderModel.OrderGroup, error) {
+func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest) (int64, error) {
 	orderDataJSON, err := json.Marshal(req.OrderData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal order data: %w", err)
+		return 0, fmt.Errorf("failed to marshal order data: %w", err)
 	}
 
 	// Begin transaction for atomic order creation
 	query := `
-		INSERT INTO orders (user_id, shop_id, product_id, quantity, total_price, status, order_data, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+		INSERT INTO orders (user_id, shop_id, total_price, status, order_data, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
 	`
 
-	var orders []orderModel.Order
-	var totalPrice float64
-	var totalItems int
-
-	// Create an order record for each product
-	for _, item := range req.Items {
-		result, err := tx.Exec(query,
-			req.UserID,
-			req.ShopID,
-			item.ProductID,
-			item.Quantity,
-			req.TotalPrice,
-			orderModel.OrderStatusPending,
-			orderDataJSON,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create order for product %d: %w", item.ProductID, err)
-		}
-
-		// Get the inserted ID
-		orderID, err := result.LastInsertId()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get order ID for product %d: %w", item.ProductID, err)
-		}
-
-		// Create order object
-		order := orderModel.Order{
-			ID:        int(orderID),
-			UserID:    req.UserID,
-			ShopID:    req.ShopID,
-			ProductID: item.ProductID,
-			Quantity:  item.Quantity,
-			Status:    orderModel.OrderStatusPending,
-			OrderData: req.OrderData,
-		}
-		orders = append(orders, order)
+	result, err := tx.Exec(query,
+		req.UserID,
+		req.ShopID,
+		req.TotalPrice,
+		orderModel.OrderStatusPending,
+		orderDataJSON,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create order: %w", err)
 	}
 
-	// Commit transaction
-	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	// Get the inserted ID
+	orderID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get inserted order ID: %w", err)
 	}
 
 	// Return order group
-	return &orderModel.OrderGroup{
-		Orders:     orders,
-		TotalPrice: totalPrice,
-		TotalItems: totalItems,
-		UserID:     req.UserID,
-		ShopID:     req.ShopID,
-		Status:     orderModel.OrderStatusPending,
-	}, nil
+	return orderID, nil
 }
 
 // GetByID retrieves an order by ID

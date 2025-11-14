@@ -72,9 +72,7 @@ func (h *orderHandler) CreateOrder(c echo.Context) error {
 	}
 
 	req.UserID = user.ID
-	log.Printf("[CreateOrder] Order data: UserID=%d, ShopID=%d, Items=%d",
-		req.UserID, req.ShopID, len(req.Items)) // Call usecase to create order
-	response, err := h.orderUsecase.CreateOrder(c.Request().Context(), &req)
+	err = h.orderUsecase.CreateOrder(c.Request().Context(), &req)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			log.Printf("[CreateOrder] Product not found: %v", err)
@@ -100,6 +98,7 @@ func (h *orderHandler) CreateOrder(c echo.Context) error {
 		})
 	}
 
-	log.Printf("[CreateOrder] Successfully created orders: IDs=%v, TotalItems=%d, TotalPrice=%.2f", response.OrderIDs, response.TotalItems, response.TotalPrice)
-	return c.JSON(http.StatusCreated, response)
+	return c.JSON(http.StatusCreated, map[string]string{
+		"message": "Order created successfully",
+	})
 }

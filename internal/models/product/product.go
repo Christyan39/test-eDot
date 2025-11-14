@@ -5,13 +5,13 @@ import "time"
 // ShopMetadata represents shop information stored as JSON
 type ShopMetadata struct {
 	ShopName string `json:"shop_name"`
-	ShopID   int    `json:"shop_id"`
+	ShopID   int64  `json:"shop_id"`
 	Status   string `json:"status"`
 }
 
 // Product represents a product entity
 type Product struct {
-	ID           int          `json:"id" db:"id"`
+	ID           int64        `json:"id" db:"id"`
 	Name         string       `json:"name" db:"name"`
 	Description  string       `json:"description" db:"description"`
 	Price        float64      `json:"price" db:"price"`
@@ -66,4 +66,9 @@ type ProductListResponse struct {
 	Page     int       `json:"page"`
 	Limit    int       `json:"limit"`
 	Pages    int       `json:"pages"`
+}
+
+type UpdateProductOnHoldStockRequest struct {
+	IDs         []int64 `json:"ids" validate:"required,dive,min=1"`
+	OnHoldStock int     `json:"on_hold_stock,omitempty" validate:"omitempty,min=0"`
 }
