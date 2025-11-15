@@ -39,11 +39,13 @@ type OrderItem struct {
 
 // CreateOrderRequest represents the request to create a new order with multiple products
 type CreateOrderRequest struct {
+	OrderID    int64                  `json:"order_id"`
 	UserID     int                    `json:"user_id" validate:"required,min=1"`
 	ShopID     int                    `json:"shop_id" validate:"required,min=1"`
 	TotalPrice float64                `json:"total_price"`
 	Items      []OrderItem            `json:"items" validate:"required,min=1,dive"`
 	OrderData  map[string]interface{} `json:"order_data,omitempty"`
+	ExpiresAt  time.Time              `json:"expires_at"`
 }
 
 // CreateOrderResponse represents the response after creating an order

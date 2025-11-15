@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
+	"time"
 
 	"github.com/Christyan39/test-eDot/internal/clients"
 	orderModel "github.com/Christyan39/test-eDot/internal/models/order"
 	productModels "github.com/Christyan39/test-eDot/internal/models/product"
 	orderRepo "github.com/Christyan39/test-eDot/internal/repositories/order"
 	"github.com/Christyan39/test-eDot/pkg/config"
+	"github.com/Christyan39/test-eDot/pkg/nsq"
 )
 
 // OrderUsecase defines the order business logic interface
@@ -38,6 +41,8 @@ func NewOrderUsecase(orderRepo orderRepo.OrderRepository) OrderUsecase {
 func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOrderRequest) error {
 	// Validate each item and collect product information via HTTP calls
 	totalPrice := 0.0
+	expDuration, _ := strconv.Atoi(config.GetEnv("ORDER_EXPIRATION_DURATION_SECONDS", "1"))
+	expDurationMs := expDuration * 1000 // convert to milliseconds
 
 	itemIDs := make([]int64, 0, len(req.Items))
 	for _, item := range req.Items {
@@ -102,6 +107,7 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOr
 		}
 	}()
 
+	req.ExpiresAt = time.Now().Add(time.Duration(expDuration) * time.Millisecond)
 	orderID, err := u.orderRepo.CreateOrder(tx, req)
 	if err != nil {
 		log.Printf("Failed to create orders: %v", err)
@@ -121,6 +127,12 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOr
 		})
 	}
 
+	err = u.orderRepo.CreateOrderItem(tx, req.Items)
+	if err != nil {
+		log.Printf("Failed to create order items: %v", err)
+		return fmt.Errorf("failed to create order items: %w", err)
+	}
+
 	err = u.productClient.HoldStockInBulk(ctx, &holdStockRequest)
 	if err != nil {
 		log.Printf("Failed to hold stock in Product Service: %v", err)
@@ -131,6 +143,16 @@ func (u *orderUsecase) CreateOrder(ctx context.Context, req *orderModel.CreateOr
 	if err != nil {
 		log.Printf("Failed to commit transaction: %v", err)
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Publish order creation event to NSQ for further processing
+	nsqAddress := config.GetEnv("NSQD_HOST", "http://localhost:4151")
+	topic := config.GetEnv("NSQ_TOPIC_ORDER", "")
+
+	req.OrderID = orderID
+	nsqErr := nsq.PublishHTTP(nsqAddress, topic, req, expDurationMs)
+	if nsqErr != nil {
+		log.Printf("[NSQERROR] Failed to publish order %d to NSQ: %v", orderID, nsqErr)
 	}
 
 	return nil

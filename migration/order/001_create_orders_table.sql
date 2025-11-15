@@ -49,3 +49,5 @@ Create TABLE IF NOT EXISTS order_items (
     CONSTRAINT chk_item_price_positive CHECK (item_price > 0),
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE orders ADD COLUMN expires_at TIMESTAMP NOT NULL AFTER updated_at;

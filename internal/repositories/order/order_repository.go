@@ -14,6 +14,7 @@ type OrderRepository interface {
 	CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderRequest) (int64, error)
 	GetByID(ctx context.Context, id int) (*orderModel.Order, error)
 	BeginTx(ctx context.Context) (*sql.Tx, error)
+	CreateOrderItem(tx *sql.Tx, req []orderModel.OrderItem) error
 }
 
 // orderRepository implements OrderRepository
@@ -44,8 +45,9 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 		status, 
 		order_data, 
 		created_at, 
-		updated_at)
-		VALUES (?, ?, ?, ?, ?, NOW(), NOW())
+		updated_at,
+		expires_at)
+		VALUES (?, ?, ?, ?, ?, NOW(), NOW(), ?)
 	`
 
 	result, err := tx.Exec(query,
@@ -54,6 +56,7 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 		req.TotalPrice,
 		orderModel.OrderStatusPending,
 		orderDataJSON,
+		req.ExpiresAt,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create order: %w", err)
