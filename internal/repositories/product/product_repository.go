@@ -19,6 +19,8 @@ type ProductRepository interface {
 	TxBegin(ctx context.Context) (*sql.Tx, error)
 	GetByIDsForUpdateTx(tx *sql.Tx, ids []int64) ([]productModel.Product, error)
 	InsertHoldStockAuditsTx(tx *sql.Tx, audits []productModel.HoldStockAudit) error
+	GetHoldStockAuditsByOrderIDTx(tx *sql.Tx, orderID int64) ([]productModel.HoldStockAudit, error)
+	UpdateHoldStockAuditsStatusTx(tx *sql.Tx, orderID int64, status string) error
 }
 
 // productRepository implements ProductRepository
@@ -378,6 +380,57 @@ func (r *productRepository) InsertHoldStockAuditsTx(tx *sql.Tx, audits []product
 	_, err := tx.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to insert hold stock audits in bulk: %w", err)
+	}
+
+	return nil
+}
+
+func (r *productRepository) GetHoldStockAuditsByOrderIDTx(tx *sql.Tx, orderID int64) ([]productModel.HoldStockAudit, error) {
+	query := `
+		SELECT id, product_id, quantity, status, order_id, created_at
+		FROM product_hold_audit
+		WHERE order_id = ?
+	`
+
+	rows, err := tx.Query(query, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hold stock audits: %w", err)
+	}
+	defer rows.Close()
+
+	var audits []productModel.HoldStockAudit
+	for rows.Next() {
+		var audit productModel.HoldStockAudit
+		err := rows.Scan(
+			&audit.ID,
+			&audit.ProductID,
+			&audit.Quantity,
+			&audit.Status,
+			&audit.OrderID,
+			&audit.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan hold stock audit: %w", err)
+		}
+		audits = append(audits, audit)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error during row iteration: %w", err)
+	}
+
+	return audits, nil
+}
+
+func (r *productRepository) UpdateHoldStockAuditsStatusTx(tx *sql.Tx, orderID int64, status string) error {
+	query := `
+		UPDATE product_hold_audit
+		SET status = ?
+		WHERE order_id = ? and status = 'held'
+	`
+
+	_, err := tx.Exec(query, status, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to update hold stock audits status: %w", err)
 	}
 
 	return nil

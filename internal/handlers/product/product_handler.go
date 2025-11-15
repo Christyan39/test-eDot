@@ -15,6 +15,7 @@ type ProductHandler interface {
 	CreateProduct(c echo.Context) error
 	ListProducts(c echo.Context) error
 	HoldStockInBulk(c echo.Context) error
+	ReleaseHeldStock(c echo.Context) error
 }
 
 // productHandler implements ProductHandler
@@ -136,5 +137,27 @@ func (h *productHandler) HoldStockInBulk(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "On-hold stock updated successfully in bulk",
+	})
+}
+
+func (h *productHandler) ReleaseHeldStock(c echo.Context) error {
+	var req productModel.ReleaseHeldStockRequest
+	if err := c.Bind(&req); err != nil {
+		log.Printf("[ReleaseHeldStock] Failed to bind request: %v", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid request format",
+		})
+	}
+
+	err := h.productUsecase.ReleaseHeldStock(c.Request().Context(), &req)
+	if err != nil {
+		log.Printf("[ReleaseHeldStock] Usecase error: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to release held stock",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Held stock released successfully",
 	})
 }
