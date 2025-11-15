@@ -6,16 +6,15 @@ import (
 
 // Order represents an order in the system
 type Order struct {
-	ID         int                    `json:"id" db:"id"`
+	ID         int64                  `json:"id" db:"id"`
 	UserID     int                    `json:"user_id" db:"user_id"`
 	ShopID     int                    `json:"shop_id" db:"shop_id"`
-	ProductID  int                    `json:"product_id" db:"product_id"`
-	Quantity   int                    `json:"quantity" db:"quantity"`
 	TotalPrice float64                `json:"total_price" db:"total_price"`
 	Status     string                 `json:"status" db:"status"`
 	OrderData  map[string]interface{} `json:"order_data" db:"order_data"`
 	CreatedAt  time.Time              `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time              `json:"updated_at" db:"updated_at"`
+	ExpiresAt  time.Time              `json:"expires_at" db:"expires_at"`
 }
 
 // OrderGroup represents a group of related orders from the same request

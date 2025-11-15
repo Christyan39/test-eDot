@@ -14,6 +14,8 @@ import (
 	orderUsecases "github.com/Christyan39/test-eDot/internal/usecases/order"
 	"github.com/Christyan39/test-eDot/pkg/config"
 	"github.com/Christyan39/test-eDot/pkg/database"
+	appnsq "github.com/Christyan39/test-eDot/pkg/nsq"
+	nsqio "github.com/nsqio/go-nsq"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -56,6 +58,29 @@ func main() {
 	orderRepo := orderRepositories.NewOrderRepository(db)
 	orderUsecase := orderUsecases.NewOrderUsecase(orderRepo)
 	orderHandler := orderHandlers.NewOrderHandler(orderUsecase)
+
+	// Initialize NSQ consumer for order events
+	nsqConfig := nsqio.NewConfig()
+	nsqdAddr := config.GetEnv("NSQD_TCP_HOST", "localhost:4150")
+	topic := config.GetEnv("NSQ_TOPIC_ORDER", "")
+	channel := config.GetEnv("NSQ_CHANNEL_ORDER", "")
+
+	go func() {
+		if topic == "" || channel == "" {
+			log.Println("[NSQ] Topic or Channel not set, skipping NSQ consumer initialization")
+			return
+		}
+
+		handler := &appnsq.MessageHandler{
+			ProcessFunc: orderUsecase.ProcessOrderMessage,
+		}
+		consumer, err := appnsq.NewConsumer(topic, channel, nsqdAddr, nsqConfig, handler)
+		if err != nil {
+			log.Fatalf("[NSQ] Failed to start consumer: %v", err)
+		}
+		log.Printf("[NSQ] Consumer started for topic '%s', channel '%s'", topic, channel)
+		<-consumer.StopChan
+	}()
 
 	// Initialize Echo
 	log.Println("[STARTUP] Initializing Echo web framework...")

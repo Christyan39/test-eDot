@@ -82,3 +82,7 @@ type HoldStockAudit struct {
 	Status    string    `json:"status" db:"status"` // held, success, cancelled
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
+
+type ReleaseHeldStockRequest struct {
+	OrderID int64 `json:"order_id" validate:"required,min=1"`
+}

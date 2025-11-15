@@ -51,3 +51,4 @@ Create TABLE IF NOT EXISTS order_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE orders ADD COLUMN expires_at TIMESTAMP NOT NULL AFTER updated_at;
+ALTER TABLE orders MODIFY COLUMN status ENUM('pending', 'confirmed', 'shipped', 'delivered', 'cancelled','expired') NOT NULL DEFAULT 'pending';

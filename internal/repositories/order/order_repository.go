@@ -15,6 +15,8 @@ type OrderRepository interface {
 	GetByID(ctx context.Context, id int) (*orderModel.Order, error)
 	BeginTx(ctx context.Context) (*sql.Tx, error)
 	CreateOrderItem(tx *sql.Tx, req []orderModel.OrderItem) error
+	GetByIDForUpdateTx(ctx context.Context, tx *sql.Tx, id int) (*orderModel.Order, error)
+	UpdateOrderStatusTx(ctx context.Context, tx *sql.Tx, id int64, status string) error
 }
 
 // orderRepository implements OrderRepository
@@ -75,7 +77,7 @@ func (r *orderRepository) CreateOrder(tx *sql.Tx, req *orderModel.CreateOrderReq
 // GetByID retrieves an order by ID
 func (r *orderRepository) GetByID(ctx context.Context, id int) (*orderModel.Order, error) {
 	query := `
-		SELECT id, user_id, shop_id, product_id, quantity, total_price, status, order_data, created_at, updated_at
+		SELECT id, user_id, shop_id, total_price, status, order_data, created_at, updated_at
 		FROM orders
 		WHERE id = ?
 	`
@@ -86,8 +88,6 @@ func (r *orderRepository) GetByID(ctx context.Context, id int) (*orderModel.Orde
 		&order.ID,
 		&order.UserID,
 		&order.ShopID,
-		&order.ProductID,
-		&order.Quantity,
 		&order.TotalPrice,
 		&order.Status,
 		&orderDataJSON,
@@ -116,4 +116,56 @@ func (r *orderRepository) BeginTx(ctx context.Context) (*sql.Tx, error) {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	return tx, nil
+}
+
+func (r *orderRepository) GetByIDForUpdateTx(ctx context.Context, tx *sql.Tx, id int) (*orderModel.Order, error) {
+	query := `
+		SELECT id, user_id, shop_id, total_price, status, order_data, created_at, updated_at, expires_at
+		FROM orders
+		WHERE id = ?
+		FOR UPDATE
+	`
+
+	var order orderModel.Order
+	var orderDataJSON []byte
+	err := tx.QueryRowContext(ctx, query, id).Scan(
+		&order.ID,
+		&order.UserID,
+		&order.ShopID,
+		&order.TotalPrice,
+		&order.Status,
+		&orderDataJSON,
+		&order.CreatedAt,
+		&order.UpdatedAt,
+		&order.ExpiresAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("order not found")
+		}
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Unmarshal order data
+	if err := json.Unmarshal(orderDataJSON, &order.OrderData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal order data: %w", err)
+	}
+
+	return &order, nil
+}
+
+func (r *orderRepository) UpdateOrderStatusTx(ctx context.Context, tx *sql.Tx, id int64, status string) error {
+	query := `
+		UPDATE orders
+		SET status = ?, updated_at = NOW()
+		WHERE id = ?
+	`
+
+	_, err := tx.ExecContext(ctx, query, status, id)
+	if err != nil {
+		return fmt.Errorf("failed to update order status: %w", err)
+	}
+
+	return nil
 }
